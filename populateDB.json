@@ -1,0 +1,26 @@
+{
+  "name": "John",
+  "functions": [
+    {
+      "name": "times_series_intraday", 
+      "stocks": [
+        {
+          "symbol": "MSFT"
+        },
+        {
+          "symbol": "AAPL"
+        },
+        {
+          "symbol": "FB"
+        },
+        {
+          "symbol": "GOOGL"
+        },
+        {
+          "symbol": "AMZN"
+        }
+      ],
+      "interval": 1
+    }
+  ]
+}
