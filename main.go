@@ -6,8 +6,9 @@ import (
     "log"
     "net/http"
 
-    "github.com/bkzhang/stock/core"
+    "github.com/bkzhang/stock-tracker/core"
     "github.com/gorilla/mux"
+    //"github.com/gorilla/websocket"
 )
 
 func main() {
@@ -20,9 +21,13 @@ func main() {
     )
     flag.Parse()
 
+    //ADD WEBSOCKET (OR CHANGE TO) FOR CLI
+
     r := mux.NewRouter()
     c := &core.Controller{
-        ApiKey: *apikey,
+        ApiKey: &core.Api{
+            Key: *apikey,
+        },
         DB: &core.Database {
             Server: *dbserver,
             Name: *dbname,
@@ -32,7 +37,7 @@ func main() {
     }
 
     //write tests
-    r.Methods("GET", "POST").Path("/user/{user}").HandlerFunc(c.UserStocks).Name("UserStocks")
+    //r.Methods("GET", "POST").Path("/user/{user}").HandlerFunc(c.UserStocks).Name("UserStocks")
     r.Methods("GET").Path("/user/{user}/function/{function}").HandlerFunc(c.Function).Name("Function")
 
     fmt.Println("Serving to http://localhost:", *port)

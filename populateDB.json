@@ -2,7 +2,7 @@
   "name": "John",
   "functions": [
     {
-      "name": "times_series_intraday", 
+      "name": "time_series_intraday", 
       "stocks": [
         {
           "symbol": "MSFT"

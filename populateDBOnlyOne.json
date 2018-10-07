@@ -1,0 +1,14 @@
+{
+  "name": "John",
+  "functions": [
+    {
+      "name": "time_series_intraday",
+      "stocks": [
+        {
+          "symbol": "MSFT"
+        }
+      ],
+      "interval": 5
+    }
+  ]
+}

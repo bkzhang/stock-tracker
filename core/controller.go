@@ -2,7 +2,7 @@ package core
 
 import (
     "encoding/json"
-    "io/ioutil"
+    //"io/ioutil"
     "net/http"
 
     "github.com/gorilla/mux"
@@ -11,7 +11,7 @@ import (
 const URL = "https://www.alphavantage.co/query?"
 
 type Controller struct {
-    ApiKey string
+    ApiKey *Api 
     DB *Database
     Router *mux.Router
 }
@@ -19,24 +19,34 @@ type Controller struct {
 func (c *Controller) Function(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
 
-    switch r.Method {
-    case "GET":
-        c.GetFunction(w, r, vars["user"], vars["function"])
-    }
-}
-
-func (c *Controller) GetFunction(w http.ResponseWriter, r *http.Request, user string, fn string) {
-    fn, err := c.DB.Function(user, fn)
+    user, err := c.DB.User(vars["user"])
     if err != nil {
         w.WriteHeader(http.StatusInternalServerError)
         w.Write([]byte(err.Error()))
         return
     }
 
-    data, err := json.Marshal(fn)
+    switch r.Method {
+    case "GET":
+        c.GetFunction(w, r, user, vars["function"])
+    }
+}
+
+func (c *Controller) GetFunction(w http.ResponseWriter, r *http.Request, user User, fn string) {
+    res, errs := c.ApiKey.Function(user, fn) 
+    if errs != nil {
+        w.WriteHeader(http.StatusInternalServerError)
+        for _, err := range errs {
+            w.Write([]byte(err.Error()))
+        }
+        return
+    }
+
+    data, err := json.Marshal(res)
     if err != nil {
         w.WriteHeader(http.StatusInternalServerError)
         w.Write([]byte(err.Error()))
+        return
     }
 
     w.Header().Set("Content-Type", "application/json")
@@ -44,6 +54,7 @@ func (c *Controller) GetFunction(w http.ResponseWriter, r *http.Request, user st
     w.Write(data)
 }
 
+/*
 // change this since model changed
 func (c *Controller) UserStocks(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
@@ -107,28 +118,4 @@ func (c *Controller) PostStock(w http.ResponseWriter, r *http.Request, user stri
     w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(http.StatusCreated)
 }
-
-// test
-func (c *Controller) TimeSeriesIntraDay(w http.ResponseWriter, r *http.Request) {
-    interval := "5min"
-    symbol := "MSFT"
-    uri := "function=TIME_SERIES_INTRADAY&symbol="+symbol+"&interval="+interval+"&apikey="+c.ApiKey
-
-    resp, err := http.Get(URL+uri)
-    if err != nil {
-        w.WriteHeader(http.StatusBadRequest)
-        w.Write([]byte(err.Error()))
-        return
-    }
-    defer resp.Body.Close()
-
-    body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        w.WriteHeader(http.StatusBadRequest)
-        w.Write([]byte(err.Error()))
-    }
-
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(http.StatusOK)
-    w.Write(body)
-}
+*/
