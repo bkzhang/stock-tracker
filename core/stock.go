@@ -7,6 +7,7 @@ import (
     "net/http"
     "strconv"
     "strings"
+    "time"
 )
 
 type Api struct {
@@ -73,15 +74,67 @@ func (api *Api) TimeSeriesIntraday(stock Stock, interval uint) StockResult {
         return res
     }
 
-    temp := strings.SplitAfter(string(body), "{\n\t\"Information\": \"Thank you for using Alpha Vantage! Please visit https://www.alphavantage.co/premium/ if you would like to have a higher API call volume.\n}")
-    if len(temp) > 0 {
-        body = []byte(temp[0])
-    }
-
     if err := json.Unmarshal(body, &res.Data); err != nil {
         res.Error = fmt.Errorf("Error unmarshalling stock: %v", err)
         return res
     }
 
+    for k, v := range res.Data {
+        if k == "Information" {
+            res.Data = make(StockData)
+            res.Error = fmt.Errorf("Alpha Vantage API error: %v", v)
+        }
+    }
+
+    for k, v := range res.Data {
+        if strings.Contains(k, "Time Series") {
+            for d := range v.(map[string]interface{}) {
+                // Need to iterate through everything in map because it might not be ordered
+                // either sort or use LRU cache since we only want the most recent value 
+                date, err := TimeSeriesToTime(d, res.Data["Meta Data"].(map[string]interface{})["6. Time Zone"].(string))
+                if err != nil {
+                    res.Error = err
+                    return res
+                }
+            }
+            break;
+        }
+    }
+
     return res
+}
+
+func TimeSeriesToTime(d string, timezone string) (string, error) {
+    date := strings.Split(d[:10], "-")
+    hourlytime := strings.Split(d[11:], ":") 
+    year, err := strconv.Atoi(date[0])
+    if err != nil {
+        return "", fmt.Errorf("String to int conversion error: %v", err)
+    }
+    month, err := strconv.Atoi(date[1])
+    if err != nil {
+        return "", fmt.Errorf("String to int conversion error: %v", err)
+    }
+    day, err := strconv.Atoi(date[2])
+    if err != nil {
+        return "", fmt.Errorf("String to int conversion error: %v", err)
+    }
+    hour, err := strconv.Atoi(hourlytime[0])
+    if err != nil {
+        return "", fmt.Errorf("String to int conversion error: %v", err)
+    }
+    min, err := strconv.Atoi(hourlytime[1])
+    if err != nil {
+        return "", fmt.Errorf("String to int conversion error: %v", err)
+    }
+    sec, err := strconv.Atoi(hourlytime[2])
+    if err != nil {
+        return "", fmt.Errorf("String to int conversion error: %v", err)
+    }
+    zone, err := time.LoadLocation(timezone)
+    if err != nil {
+        return "", fmt.Errorf("String to *time.Location conversion error: %v", err)
+    }
+    t := time.Date(year, time.Month(month), day, hour, min, sec, 0, zone)
+    return t.Format("2006-1-2 15:04:05"), nil
 }
