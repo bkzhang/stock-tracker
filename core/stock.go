@@ -88,9 +88,8 @@ func (api *Api) TimeSeriesIntraday(stock Stock, interval uint) StockResult {
 
     for k, v := range res.Data {
         if strings.Contains(k, "Time Series") {
+            // need to sort since we only want most recent
             for d := range v.(map[string]interface{}) {
-                // Need to iterate through everything in map because it might not be ordered
-                // either sort or use LRU cache since we only want the most recent value 
                 date, err := TimeSeriesToTime(d, res.Data["Meta Data"].(map[string]interface{})["6. Time Zone"].(string))
                 if err != nil {
                     res.Error = err
