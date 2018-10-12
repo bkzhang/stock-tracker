@@ -40,6 +40,8 @@ func main() {
     //r.Methods("GET", "POST").Path("/user/{user}").HandlerFunc(c.UserStocks).Name("UserStocks")
     r.Methods("GET").Path("/user/{user}/function/{function}").HandlerFunc(c.Function).Name("Function")
 
+    r.PathPrefix("/test").HandlerFunc(c.FunctionSocket).Name("FunctionSocket")
+
     fmt.Println("Serving to http://localhost:", *port)
     log.Fatal(http.ListenAndServe(":"+*port, r))
 }

@@ -3,9 +3,11 @@ package core
 import (
     "encoding/json"
     //"io/ioutil"
+    "log"
     "net/http"
 
     "github.com/gorilla/mux"
+    "github.com/gorilla/websocket"
 )
 
 const URL = "https://www.alphavantage.co/query?"
@@ -14,6 +16,28 @@ type Controller struct {
     ApiKey *Api 
     DB *Database
     Router *mux.Router
+}
+
+func (c *Controller) FunctionSocket(w http.ResponseWriter, r *http.Request) {
+    upgrader := websocket.Upgrader{}
+    conn, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        log.Println("Upgrader error:", err)
+    }
+    defer conn.Close()
+
+    for {
+        mt, message, err := conn.ReadMessage()
+        if err != nil {
+            log.Println("Read error:", err)
+            break
+        }
+        log.Println("Received message:", message)
+        if err := conn.WriteMessage(mt, message); err != nil {
+            log.Println("Write error:", err)
+            break
+        }
+    }
 }
 
 func (c *Controller) Function(w http.ResponseWriter, r *http.Request) {
