@@ -35,11 +35,9 @@ func (c *Controller) Function(w http.ResponseWriter, r *http.Request) {
 func (c *Controller) GetFunction(w http.ResponseWriter, r *http.Request, user User, fn string) {
     res, errs := c.ApiKey.Function(user, fn) 
     if errs != nil {
-        w.WriteHeader(http.StatusInternalServerError)
         for _, err := range errs {
             w.Write([]byte(err.Error()))
         }
-        return
     }
 
     data, err := json.Marshal(res)
