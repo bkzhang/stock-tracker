@@ -6,7 +6,7 @@ import (
     "log"
     "net/http"
 
-    "github.com/bkzhang/stock-tracker/core"
+    "github.com/bkzhang/stock-tracker/server/core"
     "github.com/gorilla/mux"
     //"github.com/gorilla/websocket"
 )
@@ -38,9 +38,9 @@ func main() {
 
     //write tests
     //r.Methods("GET", "POST").Path("/user/{user}").HandlerFunc(c.UserStocks).Name("UserStocks")
-    r.Methods("GET").Path("/user/{user}/function/{function}").HandlerFunc(c.Function).Name("Function")
+    //r.Methods("GET").Path("/user/{user}/function/{function}").HandlerFunc(c.Function).Name("Function")
 
-    r.PathPrefix("/test").HandlerFunc(c.FunctionSocket).Name("FunctionSocket")
+    r.PathPrefix("/user/{user}/function/{function}").HandlerFunc(c.Function).Name("Function")
 
     fmt.Println("Serving to http://localhost:", *port)
     log.Fatal(http.ListenAndServe(":"+*port, r))

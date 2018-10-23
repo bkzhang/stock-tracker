@@ -10,24 +10,10 @@ import (
     "time"
 )
 
+const URL = "https://www.alphavantage.co/query?"
+
 type Api struct {
     Key string
-}
-
-type StockResult struct {
-    Symbol string
-    Date time.Time
-    TimeZone string
-    High float64
-    Low float64
-    Open float64
-    Close float64
-    Volume uint64
-}
-
-type Result struct {
-    StockResult StockResult
-    Error error
 }
 
 func (api *Api) Function(user User, fnName string) ([]StockResult, []error) {

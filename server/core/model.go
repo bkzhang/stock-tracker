@@ -1,5 +1,7 @@
 package core
 
+import "time"
+
 type User struct {
     Name string
     Functions Functions
@@ -39,4 +41,20 @@ type TimeSeriesInfo struct {
     Low float64 `json:"3. low,string"`
     Close float64 `json:"4. close,string"`
     Volume uint `json:"5. volume,string"`
+}
+
+type StockResult struct {
+    Symbol string
+    Date time.Time
+    TimeZone string
+    High float64
+    Low float64
+    Open float64
+    Close float64
+    Volume uint64
+}
+
+type Result struct {
+    StockResult StockResult
+    Error error
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+    "flag"
     "log"
     "net/url"
     "os"
@@ -11,10 +12,16 @@ import (
 )
 
 func main() {
+    var (
+        user = flag.String("user", "", "username")
+        function = flag.String("function", "time_series_intraday", "stock function, currently available: times_series_intraday")
+    )
+    flag.Parse()
+
     interrupt := make(chan os.Signal, 1)
     signal.Notify(interrupt, os.Interrupt)
 
-    u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/test"}
+    u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/user/"+*user+"/function/"+*function}
     log.Println("Connecting to", u.String())
 
     c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
@@ -33,12 +40,17 @@ func main() {
                 log.Println("Read error:", err)
                 return
             }
-            log.Println("Received:", message)
+            log.Println("Received:", string(message))
         }
     }()
 
-    ticker := time.NewTicker(time.Second)
+    ticker := time.NewTicker(time.Minute)
     defer ticker.Stop()
+
+    if err := c.WriteMessage(websocket.TextMessage, []byte("")); err != nil {
+        log.Println("Write error:", err)
+        return
+    }
 
     for {
         select {
@@ -53,7 +65,7 @@ func main() {
             log.Println("Interrupt")
 
             if err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
-                log.Println("Write close", err)
+                log.Println("Write error:", err)
                 return
             }
             select {

@@ -10,37 +10,13 @@ import (
     "github.com/gorilla/websocket"
 )
 
-const URL = "https://www.alphavantage.co/query?"
-
 type Controller struct {
-    ApiKey *Api 
+    ApiKey *Api
     DB *Database
     Router *mux.Router
 }
 
-func (c *Controller) FunctionSocket(w http.ResponseWriter, r *http.Request) {
-    upgrader := websocket.Upgrader{}
-    conn, err := upgrader.Upgrade(w, r, nil)
-    if err != nil {
-        log.Println("Upgrader error:", err)
-    }
-    defer conn.Close()
-
-    for {
-        mt, message, err := conn.ReadMessage()
-        if err != nil {
-            log.Println("Read error:", err)
-            break
-        }
-        log.Println("Received message:", message)
-        if err := conn.WriteMessage(mt, message); err != nil {
-            log.Println("Write error:", err)
-            break
-        }
-    }
-}
-
-func (c *Controller) Function(w http.ResponseWriter, r *http.Request) {
+/*func (c *Controller) Function(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
 
     user, err := c.DB.User(vars["user"])
@@ -53,6 +29,61 @@ func (c *Controller) Function(w http.ResponseWriter, r *http.Request) {
     switch r.Method {
     case "GET":
         c.GetFunction(w, r, user, vars["function"])
+    }
+}*/
+
+func (c *Controller) Function(w http.ResponseWriter, r *http.Request) {
+    vars := mux.Vars(r)
+
+    upgrader := websocket.Upgrader{}
+    conn, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        log.Println("upgrader error:", err)
+    }
+    defer conn.Close()
+
+    user, err := c.DB.User(vars["user"])
+    if err != nil {
+        if e := conn.WriteMessage(websocket.TextMessage, []byte("user error: " + err.Error())); e != nil {
+            log.Println("write error:", e)
+            return
+        }
+        log.Println("user error:", err)
+        return
+    }
+
+    for {
+        _, _, err := conn.ReadMessage()
+        if err != nil {
+            log.Println("Read error:", err)
+            return
+        }
+
+        res, errs := c.ApiKey.Function(user, vars["function"])
+        if errs != nil {
+            for _, err := range errs {
+                errstring := vars["function"] + " error: " + err.Error()
+                if e := conn.WriteMessage(websocket.TextMessage, []byte(errstring)); e != nil {
+                    log.Println("write error:", e)
+                    return
+                }
+                log.Println(errstring)
+            }
+        }
+
+        data, err := json.Marshal(res)
+        if err != nil {
+            if e := conn.WriteMessage(websocket.TextMessage, []byte("marshalling error: " + err.Error())); e != nil {
+                log.Println("write error:", e)
+                return
+            }
+            log.Println("marshalling error: " + err.Error())
+        }
+
+        if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+            log.Println("write error:", err)
+            return
+        }
     }
 }
 
