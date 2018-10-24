@@ -16,117 +16,119 @@ type Api struct {
     Key string
 }
 
-func (api *Api) Function(user User, fnName string) ([]StockResult, []error) {
-    var length int
-    ch := make(chan Result)
-    for _, fn := range user.Functions {
-        if fn.Name == "time_series_intraday" {
-            length = len(fn.Stocks)
-            interval := fn.Interval
-            for _, stock := range fn.Stocks {
-                go func(s Stock) {
-                    ch <- api.TimeSeriesIntraday(s, interval) 
-                }(stock)
-            }
-            break;
-        }
-    }
-
-    stockResults := make([]StockResult, length)
-    errs := make([]error, 0)
-    for i := 0; i < length; i++ {
-        res := <-ch
-        stockResults[i] = res.StockResult
-        if res.Error != nil {
-            errs = append(errs, res.Error)
-        }
-    }
-
-    return stockResults, errs
+func (api *Api) IntraDayOneMin(user User) ([]Stock, []error) {
+    stocks, errs := api.IntraDay(user, 1)
+    return stocks, errs 
 }
 
-func (api *Api) TimeSeriesIntraday(stock Stock, interval uint) Result {
-    var res Result
+func (api *Api) IntraDay(user User, interval uint) ([]Stock, []error) {
+    ch := make(chan StockQuery)
+    for _, stock := range user.Stocks {
+        go func(s Stock) {
+            ch <- api.QueryIntraday(s, 1)
+        }(stock)
+    }
+
+    n := len(user.Stocks)
+    stocks := make([]Stock, n)
+    errs := make([]error, 0)
+    for i := 0; i < n; i++ {
+        query := <-ch
+        if query.Error != nil {
+            errs = append(errs, query.Error)
+        } else {
+            stocks[i] = query.Stock
+        }
+    }
+    
+    if len(errs) > 0 {
+        return stocks, errs
+    }
+    return stocks, nil 
+}
+
+func (api *Api) QueryIntraday(stock Stock, interval uint) StockQuery {
+    var query StockQuery 
     var stockData StockData
     if stock.Symbol == "" {
-        res.Error = fmt.Errorf("Stock object missing symbol")
-        return res
+        query.Error = fmt.Errorf("Stock object missing symbol")
+        return query 
     }
     
     uri := "function=TIME_SERIES_INTRADAY&symbol="+stock.Symbol+"&interval="+strconv.FormatUint(uint64(interval), 10)+"min&apikey="+api.Key
 
     resp, err := http.Get(URL+uri)
     if err != nil {
-        res.Error = fmt.Errorf("Could not get function results from Alpha Vantage: %v", err)
-        return res
+        query.Error = fmt.Errorf("Could not get function results from Alpha Vantage: %v", err)
+        return query 
     }
     defer resp.Body.Close()
 
     body, err := ioutil.ReadAll(resp.Body)
     if err != nil {
-        res.Error = fmt.Errorf("Error getting the response body: %v", err)
-        return res
+        query.Error = fmt.Errorf("Error getting the response body: %v", err)
+        return query 
     }
 
     if err := json.Unmarshal(body, &stockData); err != nil {
-        res.Error = fmt.Errorf("Error unmarshalling stock: %v", err)
-        return res
+        query.Error = fmt.Errorf("Error unmarshalling stock: %v", err)
+        return query 
     }
 
     for k, v := range stockData {
         if k == "Information" {
-            res.StockResult.Symbol = v.(map[string]interface{})["Meta Data"].(map[string]interface{})["Symbol"].(string)
-            res.Error = fmt.Errorf("Alpha Vantage API error: %v", v)
+            query.Stock.Symbol = v.(map[string]interface{})["Meta Data"].(map[string]interface{})["Symbol"].(string)
+            query.Error = fmt.Errorf("Alpha Vantage API error: %v", v)
         }
     }
 
     metadata := stockData["Meta Data"].(map[string]interface{}) 
-    res.StockResult.Symbol = metadata["2. Symbol"].(string)
+    query.Stock.Symbol = metadata["2. Symbol"].(string)
     for k, v := range stockData {
         if strings.Contains(k, "Time Series") {
             for d, v2 := range v.(map[string]interface{}) {
                 date := metadata["3. Last Refreshed"].(string)
                 if d == date {
                     timezone := metadata["6. Time Zone"].(string)
-                    stockDate, err := TimeSeriesToTime(d, timezone)
+                    stockDate, err := ToTime(d, timezone)
                     if err != nil {
-                        res.Error = err
-                        return res
+                        query.Error = err
+                        return query 
                     }
 
                     v3 := v2.(map[string]interface{})
 
-                    res.StockResult.Date = stockDate
-                    res.StockResult.TimeZone = timezone //t.Format("2006-1-2 15:04:05") 
+                    query.Stock.Date = stockDate
+                    query.Stock.TimeZone = timezone //t.Format("2006-1-2 15:04:05") 
 
-                    res.StockResult.Open, err = strconv.ParseFloat(v3["1. open"].(string), 64)
+                    query.Stock.Open, err = strconv.ParseFloat(v3["1. open"].(string), 64)
                     if err != nil {
-                        res.Error = err
-                        return res
+                        query.Error = err
+                        return query 
                     }
 
-                    res.StockResult.High, err = strconv.ParseFloat(v3["2. high"].(string), 64)
+                    query.Stock.High, err = strconv.ParseFloat(v3["2. high"].(string), 64)
                     if err != nil {
-                        res.Error = err
-                        return res
+                        query.Error = err
+                        return query 
                     }
 
-                    res.StockResult.Low, err = strconv.ParseFloat(v3["3. low"].(string), 64)
+                    query.Stock.Low, err = strconv.ParseFloat(v3["3. low"].(string), 64)
                     if err != nil {
-                        res.Error = err
-                        return res
+                        query.Error = err
+                        return query 
                     }
 
-                    res.StockResult.Close, err = strconv.ParseFloat(v3["4. close"].(string), 64)
+                    query.Stock.Close, err = strconv.ParseFloat(v3["4. close"].(string), 64)
                     if err != nil {
-                        res.Error = err
-                        return res
+                        query.Error = err
+                        return query 
                     }
 
-                    res.StockResult.Volume, err = strconv.ParseUint(v3["5. volume"].(string), 10, 64)
+                    query.Stock.Volume, err = strconv.ParseInt(v3["5. volume"].(string), 10, 64)
                     if err != nil {
-                        res.Error = err
-                        return res
+                        query.Error = err
+                        return query 
                     }
 
                     break;
@@ -136,10 +138,10 @@ func (api *Api) TimeSeriesIntraday(stock Stock, interval uint) Result {
         }
     }
 
-    return res
+    return query 
 }
 
-func TimeSeriesToTime(d string, timezone string) (time.Time, error) {
+func ToTime(d string, timezone string) (time.Time, error) {
     date := strings.Split(d[:10], "-")
     hourlytime := strings.Split(d[11:], ":") 
     year, err := strconv.Atoi(date[0])

@@ -14,14 +14,12 @@ import (
 func main() {
     var (
         apikey = flag.String("apikey", "demo", "Alpha Vantage api key")
-        dbcollection = flag.String("dbcollection", "stocks", "mongodb database collection name")
-        dbname = flag.String("dbname", "stocksapi", "mongodb database name")
-        dbserver = flag.String("dbserver", "mongodb://127.0.0.1:27017", "mongodb server")
+        dbuser = flag.String("dbuser", "root", "mysql database user")
+        dbpw = flag.String("dbpw", "", "mysql database user password")
+        dbname = flag.String("dbname", "stock_tracker", "mysql database name")
         port = flag.String("port", "8080", "port")
     )
     flag.Parse()
-
-    //ADD WEBSOCKET (OR CHANGE TO) FOR CLI
 
     r := mux.NewRouter()
     c := &core.Controller{
@@ -29,18 +27,20 @@ func main() {
             Key: *apikey,
         },
         DB: &core.Database {
-            Server: *dbserver,
+            User: *dbuser,
+            Password: *dbpw,
             Name: *dbname,
-            Collection: *dbcollection,
         },
         Router: r,
     }
 
     //write tests
-    //r.Methods("GET", "POST").Path("/user/{user}").HandlerFunc(c.UserStocks).Name("UserStocks")
+    r.Methods("POST").Path("/user").HandlerFunc(c.AddUser).Name("AddUser")
+    r.Methods("GET").Path("/user/{user}").HandlerFunc(c.User).Name("User")
+    r.Methods("GET").Path("/stock/{symbol}").HandlerFunc(c.Stock).Name("Stock")
     //r.Methods("GET").Path("/user/{user}/function/{function}").HandlerFunc(c.Function).Name("Function")
 
-    r.PathPrefix("/user/{user}/function/{function}").HandlerFunc(c.Function).Name("Function")
+    r.PathPrefix("/user/{user}/function/intraday").HandlerFunc(c.IntraDay).Name("IntraDay")
 
     fmt.Println("Serving to http://localhost:", *port)
     log.Fatal(http.ListenAndServe(":"+*port, r))

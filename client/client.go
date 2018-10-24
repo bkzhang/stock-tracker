@@ -1,6 +1,7 @@
 package main
 
 import (
+    "encoding/json"
     "flag"
     "log"
     "net/url"
@@ -8,13 +9,14 @@ import (
     "os/signal"
     "time"
 
+    "github.com/bkzhang/stock-tracker/client/model"
     "github.com/gorilla/websocket"
 )
 
 func main() {
     var (
         user = flag.String("user", "", "username")
-        function = flag.String("function", "time_series_intraday", "stock function, currently available: times_series_intraday")
+        function = flag.String("function", "intraday", "stock function, currently available: intraday")
     )
     flag.Parse()
 
@@ -22,11 +24,11 @@ func main() {
     signal.Notify(interrupt, os.Interrupt)
 
     u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/user/"+*user+"/function/"+*function}
-    log.Println("Connecting to", u.String())
+    log.Println("connecting to", u.String(), "\n")
 
     c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
     if err != nil {
-        log.Fatal("Dial error:", err)
+        log.Fatal("dial error:", err)
     }
     defer c.Close()
 
@@ -37,10 +39,21 @@ func main() {
         for {
             _, message, err := c.ReadMessage()
             if err != nil {
-                log.Println("Read error:", err)
+                log.Println("read error:", err)
                 return
             }
-            log.Println("Received:", string(message))
+
+            var stocks model.Stocks
+            if err := json.Unmarshal(message, &stocks); err != nil {
+                log.Println("json unmarshalling error:", err)
+            }
+
+            log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime))
+            for _, v := range stocks {
+                t := v.Date
+                log.Println(t.Format("2006/1/2 15:04:05"), v.TimeZone, v.Symbol, "high:", v.High, "low:", v.Low, "open:", v.Open, "close:", v.Close, "volume:", v.Volume)
+            }
+            log.SetFlags(log.Flags() |^ (log.Ldate | log.Ltime))
         }
     }()
 

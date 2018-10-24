@@ -2,7 +2,7 @@ package core
 
 import (
     "encoding/json"
-    //"io/ioutil"
+    "io/ioutil"
     "log"
     "net/http"
 
@@ -16,23 +16,82 @@ type Controller struct {
     Router *mux.Router
 }
 
-/*func (c *Controller) Function(w http.ResponseWriter, r *http.Request) {
+func (c *Controller) User(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
-
-    user, err := c.DB.User(vars["user"])
+    user, err := c.DB.GetUser(vars["user"])
     if err != nil {
         w.WriteHeader(http.StatusInternalServerError)
         w.Write([]byte(err.Error()))
         return
     }
 
-    switch r.Method {
-    case "GET":
-        c.GetFunction(w, r, user, vars["function"])
+    data, err := json.Marshal(user)
+    if err != nil {
+        w.WriteHeader(http.StatusInternalServerError)
+        w.Write([]byte(err.Error()))
+        return
     }
-}*/
 
-func (c *Controller) Function(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    w.Write(data)
+}
+
+func (c *Controller) AddUser(w http.ResponseWriter, r *http.Request) {
+    body, err := ioutil.ReadAll(r.Body)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        w.Write([]byte(err.Error()))
+        return
+    }
+
+    if err := r.Body.Close(); err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        w.Write([]byte(err.Error()))
+        return
+    }
+
+    var user User
+    if err := json.Unmarshal(body, &user); err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        w.Write([]byte(err.Error()))
+        return
+    }
+
+    log.Println(user)
+
+    if err := c.DB.AddUser(user); err != nil {
+        w.WriteHeader(http.StatusInternalServerError)
+        w.Write([]byte(err.Error()))
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusCreated)
+}
+
+func (c *Controller) Stock(w http.ResponseWriter, r *http.Request) {
+    vars := mux.Vars(r)
+    stock, err := c.DB.GetStock(vars["symbol"])
+    if err != nil {
+        w.WriteHeader(http.StatusInternalServerError)
+        w.Write([]byte(err.Error()))
+        return
+    }
+
+    data, err := json.Marshal(stock)
+    if err != nil {
+        w.WriteHeader(http.StatusInternalServerError)
+        w.Write([]byte(err.Error()))
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    w.Write(data)
+}
+
+func (c *Controller) IntraDay(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
 
     upgrader := websocket.Upgrader{}
@@ -42,7 +101,7 @@ func (c *Controller) Function(w http.ResponseWriter, r *http.Request) {
     }
     defer conn.Close()
 
-    user, err := c.DB.User(vars["user"])
+    user, err := c.DB.GetUser(vars["user"])
     if err != nil {
         if e := conn.WriteMessage(websocket.TextMessage, []byte("user error: " + err.Error())); e != nil {
             log.Println("write error:", e)
@@ -59,7 +118,7 @@ func (c *Controller) Function(w http.ResponseWriter, r *http.Request) {
             return
         }
 
-        res, errs := c.ApiKey.Function(user, vars["function"])
+        res, errs := c.ApiKey.IntraDayOneMin(user)
         if errs != nil {
             for _, err := range errs {
                 errstring := vars["function"] + " error: " + err.Error()
@@ -86,89 +145,3 @@ func (c *Controller) Function(w http.ResponseWriter, r *http.Request) {
         }
     }
 }
-
-func (c *Controller) GetFunction(w http.ResponseWriter, r *http.Request, user User, fn string) {
-    res, errs := c.ApiKey.Function(user, fn) 
-    if errs != nil {
-        for _, err := range errs {
-            w.Write([]byte(err.Error()))
-        }
-    }
-
-    data, err := json.Marshal(res)
-    if err != nil {
-        w.WriteHeader(http.StatusInternalServerError)
-        w.Write([]byte(err.Error()))
-        return
-    }
-
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(http.StatusOK)
-    w.Write(data)
-}
-
-/*
-// change this since model changed
-func (c *Controller) UserStocks(w http.ResponseWriter, r *http.Request) {
-    vars := mux.Vars(r)
-
-    switch r.Method {
-    case "GET":
-        c.GetStocks(w, r, vars["user"])
-    case "POST":
-        c.PostStock(w, r, vars["user"])
-    }
-}
-
-func (c *Controller) GetStocks(w http.ResponseWriter, r *http.Request, user string) {
-    stocks, err := c.DB.Stocks(user)
-    if err != nil {
-        w.WriteHeader(http.StatusInternalServerError)
-        w.Write([]byte(err.Error()))
-        return
-    }
-
-    data, err := json.Marshal(stocks)
-    if err != nil {
-        w.WriteHeader(http.StatusInternalServerError)
-        w.Write([]byte(err.Error()))
-    }
-
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(http.StatusOK)
-    w.Write(data)
-}
-
-// change this isnce model changed
-func (c *Controller) PostStock(w http.ResponseWriter, r *http.Request, user string) {
-    var stock Stock
-
-    body, err := ioutil.ReadAll(r.Body)
-    if err != nil {
-        w.WriteHeader(http.StatusBadRequest)
-        w.Write([]byte(err.Error()))
-        return
-    }
-
-    if err := r.Body.Close(); err != nil {
-        w.WriteHeader(http.StatusBadRequest)
-        w.Write([]byte(err.Error()))
-        return
-    }
-
-    if err := json.Unmarshal(body, &stock); err != nil {
-        w.WriteHeader(http.StatusBadRequest)
-        w.Write([]byte(err.Error()))
-        return
-    }
-
-    if err := c.DB.AddStock(user, stock); err != nil {
-        w.WriteHeader(http.StatusInternalServerError)
-        w.Write([]byte(err.Error()))
-        return
-    }
-
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(http.StatusCreated)
-}
-*/

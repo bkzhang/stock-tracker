@@ -3,24 +3,17 @@ package core
 import "time"
 
 type User struct {
-    Name string
-    Functions Functions
+    Name string `json:"name"`
+    Stocks []OwnedStock `json:"stocks"`
 }
 
-type Stock struct {
-    Symbol string
-    Amount uint
+type OwnedStock struct {
+    Symbol string `json:"symbol"`
+    Date time.Time `json:"date"`
+    TimeZone string `json:"timezone"`
+    Price float64 `json:"price"` // price bought at
+    Shares int `json:"shares"` // number of shares bought
 }
-
-type Stocks []Stock
-
-type Function struct {
-    Name string
-    Stocks Stocks
-    Interval uint
-}
-
-type Functions []Function
 
 type StockData map[string]interface{}
 
@@ -43,18 +36,18 @@ type TimeSeriesInfo struct {
     Volume uint `json:"5. volume,string"`
 }
 
-type StockResult struct {
-    Symbol string
-    Date time.Time
-    TimeZone string
-    High float64
-    Low float64
-    Open float64
-    Close float64
-    Volume uint64
+type Stock struct {
+    Symbol string `json:"symbol"`
+    Date time.Time `json:"date"`
+    TimeZone string `json:"timezone"`
+    High float64 `json:"high"`
+    Low float64 `json:"low"`
+    Open float64 `json:"open"`
+    Close float64 `json:"close"`
+    Volume int64 `json:"volume"` //mysql driver doesn't support uint64
 }
 
-type Result struct {
-    StockResult StockResult
+type StockQuery struct {
+    Stock Stock
     Error error
 }
