@@ -16,46 +16,47 @@ type Api struct {
     Key string
 }
 
-func (api *Api) IntraDayOneMin(user User) ([]Stock, []error) {
-    stocks, errs := api.IntraDay(user, 1)
-    return stocks, errs 
+func (api *Api) IntraDayOneMin(user User) ([]Quote, []error) {
+    quotes, errs := api.IntraDay(user, 1)
+    return quotes, errs 
 }
 
-func (api *Api) IntraDay(user User, interval uint) ([]Stock, []error) {
+func (api *Api) IntraDay(user User, interval uint) ([]Quote, []error) {
     ch := make(chan StockQuery)
-    for _, stock := range user.Stocks {
-        go func(s Stock) {
-            ch <- api.QueryIntraday(s, 1)
-        }(stock)
+    for symbol := range user.Stocks {
+        quote := &Quote{Symbol: symbol}
+        go func(q *Quote) {
+            ch <- api.QueryIntraday(q, 1)
+        }(quote)
     }
 
     n := len(user.Stocks)
-    stocks := make([]Stock, n)
+    quotes := make([]Quote, n)
     errs := make([]error, 0)
     for i := 0; i < n; i++ {
         query := <-ch
         if query.Error != nil {
             errs = append(errs, query.Error)
         } else {
-            stocks[i] = query.Stock
+            quotes[i] = query.Quote
         }
     }
     
     if len(errs) > 0 {
-        return stocks, errs
+        return quotes, errs
     }
-    return stocks, nil 
+    return quotes, nil 
 }
 
-func (api *Api) QueryIntraday(stock Stock, interval uint) StockQuery {
+func (api *Api) QueryIntraday(quote *Quote, interval uint) StockQuery {
     var query StockQuery 
     var stockData StockData
-    if stock.Symbol == "" {
+    if quote.Symbol == "" {
         query.Error = fmt.Errorf("Stock object missing symbol")
         return query 
     }
     
-    uri := "function=TIME_SERIES_INTRADAY&symbol="+stock.Symbol+"&interval="+strconv.FormatUint(uint64(interval), 10)+"min&apikey="+api.Key
+    uri := "function=TIME_SERIES_INTRADAY&symbol="+quote.Symbol+"&interval="+strconv.FormatUint(uint64(interval), 10)+"min&apikey="+api.Key
 
     resp, err := http.Get(URL+uri)
     if err != nil {
@@ -77,13 +78,13 @@ func (api *Api) QueryIntraday(stock Stock, interval uint) StockQuery {
 
     for k, v := range stockData {
         if k == "Information" {
-            query.Stock.Symbol = v.(map[string]interface{})["Meta Data"].(map[string]interface{})["Symbol"].(string)
+            query.Quote.Symbol = v.(map[string]interface{})["Meta Data"].(map[string]interface{})["Symbol"].(string)
             query.Error = fmt.Errorf("Alpha Vantage API error: %v", v)
         }
     }
 
     metadata := stockData["Meta Data"].(map[string]interface{}) 
-    query.Stock.Symbol = metadata["2. Symbol"].(string)
+    query.Quote.Symbol = metadata["2. Symbol"].(string)
     for k, v := range stockData {
         if strings.Contains(k, "Time Series") {
             for d, v2 := range v.(map[string]interface{}) {
@@ -98,34 +99,34 @@ func (api *Api) QueryIntraday(stock Stock, interval uint) StockQuery {
 
                     v3 := v2.(map[string]interface{})
 
-                    query.Stock.Date = stockDate
-                    query.Stock.TimeZone = timezone //t.Format("2006-1-2 15:04:05") 
+                    query.Quote.Date = stockDate
+                    query.Quote.TimeZone = timezone //t.Format("2006-1-2 15:04:05") 
 
-                    query.Stock.Open, err = strconv.ParseFloat(v3["1. open"].(string), 64)
+                    query.Quote.Open, err = strconv.ParseFloat(v3["1. open"].(string), 64)
                     if err != nil {
                         query.Error = err
                         return query 
                     }
 
-                    query.Stock.High, err = strconv.ParseFloat(v3["2. high"].(string), 64)
+                    query.Quote.High, err = strconv.ParseFloat(v3["2. high"].(string), 64)
                     if err != nil {
                         query.Error = err
                         return query 
                     }
 
-                    query.Stock.Low, err = strconv.ParseFloat(v3["3. low"].(string), 64)
+                    query.Quote.Low, err = strconv.ParseFloat(v3["3. low"].(string), 64)
                     if err != nil {
                         query.Error = err
                         return query 
                     }
 
-                    query.Stock.Close, err = strconv.ParseFloat(v3["4. close"].(string), 64)
+                    query.Quote.Close, err = strconv.ParseFloat(v3["4. close"].(string), 64)
                     if err != nil {
                         query.Error = err
                         return query 
                     }
 
-                    query.Stock.Volume, err = strconv.ParseInt(v3["5. volume"].(string), 10, 64)
+                    query.Quote.Volume, err = strconv.ParseInt(v3["5. volume"].(string), 10, 64)
                     if err != nil {
                         query.Error = err
                         return query 

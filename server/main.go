@@ -37,7 +37,7 @@ func main() {
     //write tests
     r.Methods("POST").Path("/user").HandlerFunc(c.AddUser).Name("AddUser")
     r.Methods("GET").Path("/user/{user}").HandlerFunc(c.User).Name("User")
-    r.Methods("GET").Path("/stock/{symbol}").HandlerFunc(c.Stock).Name("Stock")
+    r.Methods("GET").Path("/quote/{symbol}").HandlerFunc(c.Quote).Name("Quote")
     //r.Methods("GET").Path("/user/{user}/function/{function}").HandlerFunc(c.Function).Name("Function")
 
     r.PathPrefix("/user/{user}/function/intraday").HandlerFunc(c.IntraDay).Name("IntraDay")

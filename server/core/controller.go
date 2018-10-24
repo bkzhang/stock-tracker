@@ -70,16 +70,16 @@ func (c *Controller) AddUser(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(http.StatusCreated)
 }
 
-func (c *Controller) Stock(w http.ResponseWriter, r *http.Request) {
+func (c *Controller) Quote(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
-    stock, err := c.DB.GetStock(vars["symbol"])
+    quote, err := c.DB.GetQuote(vars["symbol"])
     if err != nil {
         w.WriteHeader(http.StatusInternalServerError)
         w.Write([]byte(err.Error()))
         return
     }
 
-    data, err := json.Marshal(stock)
+    data, err := json.Marshal(quote)
     if err != nil {
         w.WriteHeader(http.StatusInternalServerError)
         w.Write([]byte(err.Error()))

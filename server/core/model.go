@@ -4,11 +4,10 @@ import "time"
 
 type User struct {
     Name string `json:"name"`
-    Stocks []OwnedStock `json:"stocks"`
+    Stocks map[string][]OwnedStock `json:"stocks"`
 }
 
 type OwnedStock struct {
-    Symbol string `json:"symbol"`
     Date time.Time `json:"date"`
     TimeZone string `json:"timezone"`
     Price float64 `json:"price"` // price bought at
@@ -36,7 +35,7 @@ type TimeSeriesInfo struct {
     Volume uint `json:"5. volume,string"`
 }
 
-type Stock struct {
+type Quote struct {
     Symbol string `json:"symbol"`
     Date time.Time `json:"date"`
     TimeZone string `json:"timezone"`
@@ -48,6 +47,6 @@ type Stock struct {
 }
 
 type StockQuery struct {
-    Stock Stock
+    Quote Quote 
     Error error
 }
