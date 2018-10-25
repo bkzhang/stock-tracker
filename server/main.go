@@ -8,7 +8,6 @@ import (
 
     "github.com/bkzhang/stock-tracker/server/core"
     "github.com/gorilla/mux"
-    //"github.com/gorilla/websocket"
 )
 
 func main() {
@@ -23,13 +22,13 @@ func main() {
 
     r := mux.NewRouter()
     c := &core.Controller{
-        ApiKey: &core.Api{
-            Key: *apikey,
-        },
         DB: &core.Database {
             User: *dbuser,
             Password: *dbpw,
             Name: *dbname,
+            Api: &core.Api{
+                Key: *apikey,
+            },
         },
         Router: r,
     }
@@ -38,7 +37,6 @@ func main() {
     r.Methods("POST").Path("/user").HandlerFunc(c.AddUser).Name("AddUser")
     r.Methods("GET").Path("/user/{user}").HandlerFunc(c.User).Name("User")
     r.Methods("GET").Path("/quote/{symbol}").HandlerFunc(c.Quote).Name("Quote")
-    //r.Methods("GET").Path("/user/{user}/function/{function}").HandlerFunc(c.Function).Name("Function")
 
     r.PathPrefix("/user/{user}/function/intraday").HandlerFunc(c.IntraDay).Name("IntraDay")
 

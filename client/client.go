@@ -43,17 +43,16 @@ func main() {
                 return
             }
 
-            var stocks model.Stocks
-            if err := json.Unmarshal(message, &stocks); err != nil {
+            var earnings model.Earnings
+            if err := json.Unmarshal(message, &earnings); err != nil {
                 log.Println("json unmarshalling error:", err)
             }
 
             log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime))
-            for _, v := range stocks {
+            for _, v := range earnings.Quotes {
                 t := v.Date
-                log.Println(t.Format("2006/1/2 15:04:05"), v.TimeZone, v.Symbol, "high:", v.High, "low:", v.Low, "open:", v.Open, "close:", v.Close, "volume:", v.Volume)
+                log.Println(t.Format("2006/1/2 15:04:05"), v.TimeZone, v.Symbol, "high:", v.High, "low:", v.Low, "open:", v.Open, "close:", v.Close, "volume:", v.Volume, "gains/losses:", earnings.GainsLosses[v.Symbol])
             }
-            log.SetFlags(log.Flags() |^ (log.Ldate | log.Ltime))
         }
     }()
 

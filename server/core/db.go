@@ -4,7 +4,7 @@ import (
     "database/sql"
     "fmt"
     "strings"
-//    "time"
+    "time"
 
     "github.com/go-sql-driver/mysql"
 )
@@ -13,6 +13,7 @@ type Database struct {
     User string
     Password string
     Name string
+    Api *Api
 }
 
 func (db *Database) GetUser(username string) (User, error) {
@@ -104,9 +105,16 @@ func (db *Database) GetQuote(symbol string) (Quote, error) {
     var nv sql.NullInt64
 
     row := sqldb.QueryRow(query)
-    if err := row.Scan(&quote.Symbol, &nt, &ntz, &nh, &nl, &no, &nc, &nv); err != nil {
+    err = row.Scan(&quote.Symbol, &nt, &ntz, &nh, &nl, &no, &nc, &nv)
+    if err == sql.ErrNoRows {
+        quote, err2 := db.UpsertQuote(symbol)
+        if err2 != nil {
+            return quote, fmt.Errorf("error updating quote:", err2)
+        }
+        return quote, nil
+    } else if err != nil {
         return quote, fmt.Errorf("error retrieving user's tracked stocks:", err)
-    }
+    } 
     
     if nt.Valid {
         quote.Date = nt.Time
@@ -128,7 +136,46 @@ func (db *Database) GetQuote(symbol string) (Quote, error) {
     }
     if nv.Valid {
         quote.Volume = nv.Int64
+    } 
+
+    storedQuoteDate := time.Date(quote.Date.Year(), quote.Date.Month(), quote.Date.Day(), quote.Date.Hour(), quote.Date.Minute(), 0, 0, quote.Date.Location())
+    now := time.Now()
+    t := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), 0, 0, now.Location())
+    
+    if storedQuoteDate != t && !(storedQuoteDate.Year() == t.Year() && storedQuoteDate.Month() == t.Month() && storedQuoteDate.Day() == t.Day() && (storedQuoteDate.Hour() >= 16 || storedQuoteDate.Hour() <= 9)) {
+        quote, err = db.UpsertQuote(symbol)
+        if err != nil {
+            return quote, fmt.Errorf("error updating quote:", err)
+        }
     }
 
+
+    return quote, nil
+}
+
+func (db *Database) UpsertQuote(symbol string) (Quote, error) {
+    quote, err := db.Api.GetQuote(symbol)
+    if err != nil {
+        return quote, err
+    }
+
+    sqldb, err := sql.Open("mysql", db.User+":"+db.Password+"@/"+db.Name)
+    if err != nil {
+        return quote, fmt.Errorf("Failed to connect to the database server: %v", err)
+    }
+    defer sqldb.Close()
+
+    upsert := `INSERT INTO quote (symbol, date, timezone, high, low, open, close, volume)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE symbol = ?, date = ?, timezone = ?, high = ?, low = ?, open = ?, close = ?, volume = ?`
+    stmtUps, err := sqldb.Prepare(upsert)
+    if err != nil {
+        return quote, fmt.Errorf("error preparing statement for mysql:", err)
+    }
+
+    if _, err := stmtUps.Exec(quote.Symbol, quote.Date, quote.TimeZone, quote.High, quote.Low, quote.Open, quote.Close, quote.Volume, quote.Symbol, quote.Date, quote.TimeZone, quote.High, quote.Low, quote.Open, quote.Close, quote.Volume); err != nil {
+        return quote, fmt.Errorf("error upserting into mysql:", err)
+    }
+    
     return quote, nil
 }

@@ -2,7 +2,7 @@ package model
 
 import "time"
 
-type Stock struct {
+type Quote struct {
     Symbol string
     Date time.Time
     TimeZone string
@@ -13,4 +13,9 @@ type Stock struct {
     Volume uint64
 }
 
-type Stocks []Stock
+type Quotes []Quote 
+
+type Earnings struct {
+    Quotes Quotes
+    GainsLosses map[string]float64
+}

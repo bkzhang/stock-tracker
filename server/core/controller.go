@@ -4,6 +4,7 @@ import (
     "encoding/json"
     "io/ioutil"
     "log"
+    "math"
     "net/http"
 
     "github.com/gorilla/mux"
@@ -11,7 +12,6 @@ import (
 )
 
 type Controller struct {
-    ApiKey *Api
     DB *Database
     Router *mux.Router
 }
@@ -72,7 +72,8 @@ func (c *Controller) AddUser(w http.ResponseWriter, r *http.Request) {
 
 func (c *Controller) Quote(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
-    quote, err := c.DB.GetQuote(vars["symbol"])
+    symbol := vars["symbol"]
+    quote, err := c.DB.GetQuote(symbol)
     if err != nil {
         w.WriteHeader(http.StatusInternalServerError)
         w.Write([]byte(err.Error()))
@@ -111,6 +112,23 @@ func (c *Controller) IntraDay(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    type Earnings struct {
+        Quotes []Quote
+        GainsLosses map[string]float64
+    }
+
+    earnings := make(map[string]float64)
+    numShares := make(map[string]int)
+
+    for symbol, shares := range user.Stocks {
+        for _, share := range shares { 
+            earnings[symbol] += share.Price * float64(share.Shares)
+            numShares[symbol] += share.Shares
+        }
+    }
+
+    log.Println("earnings:", earnings)
+
     for {
         _, _, err := conn.ReadMessage()
         if err != nil {
@@ -118,7 +136,7 @@ func (c *Controller) IntraDay(w http.ResponseWriter, r *http.Request) {
             return
         }
 
-        res, errs := c.ApiKey.IntraDayOneMin(user)
+        res, errs := c.DB.Api.IntraDayOneMin(user)
         if errs != nil {
             for _, err := range errs {
                 errstring := vars["function"] + " error: " + err.Error()
@@ -130,7 +148,21 @@ func (c *Controller) IntraDay(w http.ResponseWriter, r *http.Request) {
             }
         }
 
-        data, err := json.Marshal(res)
+        copyEarnings := make(map[string]float64)
+        for k, v := range earnings {
+            copyEarnings[k] = v
+        }
+
+        earning := &Earnings{
+            Quotes: res,
+            GainsLosses: copyEarnings,
+        }
+
+        for _, v := range res {
+            earning.GainsLosses[v.Symbol] = RoundFloat64((v.Open+v.Close)/2.0*float64(numShares[v.Symbol]) - earning.GainsLosses[v.Symbol], 0.01)
+        }
+
+        data, err := json.Marshal(earning)
         if err != nil {
             if e := conn.WriteMessage(websocket.TextMessage, []byte("marshalling error: " + err.Error())); e != nil {
                 log.Println("write error:", e)
@@ -144,4 +176,8 @@ func (c *Controller) IntraDay(w http.ResponseWriter, r *http.Request) {
             return
         }
     }
+}
+
+func RoundFloat64(f, decimalPlace float64) float64 {
+    return math.Round(f / decimalPlace) * decimalPlace
 }

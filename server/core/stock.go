@@ -16,6 +16,16 @@ type Api struct {
     Key string
 }
 
+func (api *Api) GetQuote(symbol string) (Quote, error) {
+    quote := &Quote{Symbol: symbol}
+    res := api.QueryIntraday(quote, 1)
+    if res.Error != nil {
+        return res.Quote, res.Error 
+    }
+
+    return res.Quote, nil
+}
+
 func (api *Api) IntraDayOneMin(user User) ([]Quote, []error) {
     quotes, errs := api.IntraDay(user, 1)
     return quotes, errs 
