@@ -41,6 +41,6 @@ func main() {
 
     r.PathPrefix("/user/{user}/function/intraday").HandlerFunc(c.IntraDay).Name("IntraDay")
 
-    fmt.Println("Serving to http://localhost:", *port)
+    fmt.Println("Serving to http://localhost:" + *port)
     log.Fatal(http.ListenAndServe(":"+*port, r))
 }

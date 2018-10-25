@@ -149,13 +149,20 @@ func (c *Controller) IntraDay(w http.ResponseWriter, r *http.Request) {
         GainsLosses map[string]float64
     }
 
-    cache := make(map[string]float64)
-    numShares := make(map[string]int)
+    type Cache struct {
+        OriginalValue float64
+        NumShares int
+    }
+
+    cache := make(map[string]*Cache)
 
     for symbol, shares := range user.Stocks {
         for _, share := range shares { 
-            cache[symbol] += share.Price * float64(share.Shares)
-            numShares[symbol] += share.Shares
+            if cache[symbol] == nil {
+                cache[symbol] = &Cache{0.0, 0}
+            }
+            cache[symbol].OriginalValue += share.Price
+            cache[symbol].NumShares += share.Shares
         }
     }
 
@@ -184,7 +191,7 @@ func (c *Controller) IntraDay(w http.ResponseWriter, r *http.Request) {
         }
 
         for _, v := range res {
-            earning.GainsLosses[v.Symbol] = RoundFloat64((v.Open+v.Close)/2.0*float64(numShares[v.Symbol]) - cache[v.Symbol], 0.01)
+            earning.GainsLosses[v.Symbol] = RoundFloat64((v.Open + v.Close )/ 2.0 * float64(cache[v.Symbol].NumShares) - (cache[v.Symbol].OriginalValue * float64(cache[v.Symbol].NumShares)), 0.01)
         }
 
         data, err := json.Marshal(earning)

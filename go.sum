@@ -1,3 +1,5 @@
+github.com/bkzhang/stock-tracker v0.0.0-20181025040755-a4e352b0fde3 h1:LyN0GQogxIrqCy6juAPF7C8sFmRXL89V/lYyy3Zs5iU=
+github.com/bkzhang/stock-tracker v0.0.0-20181025040755-a4e352b0fde3/go.mod h1:OzTJYJ77thGJ7bh2EDVCzZYMbDxYu9lKdU1rKnx8A1c=
 github.com/go-sql-driver/mysql v1.4.0 h1:7LxgVwFb2hIQtMm87NdgAVfXjnt4OePseqT1tKx+opk=
 github.com/go-sql-driver/mysql v1.4.0/go.mod h1:zAC/RDZ24gD3HViQzih4MyKcchzm+sOG5ZlKdlhCg5w=
 github.com/gorilla/context v1.1.1 h1:AWwleXJkX/nhcU9bZSnZoi3h/qGYqQAGhq6zZe/aQW8=
