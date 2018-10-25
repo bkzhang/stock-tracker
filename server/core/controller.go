@@ -117,17 +117,15 @@ func (c *Controller) IntraDay(w http.ResponseWriter, r *http.Request) {
         GainsLosses map[string]float64
     }
 
-    earnings := make(map[string]float64)
+    cache := make(map[string]float64)
     numShares := make(map[string]int)
 
     for symbol, shares := range user.Stocks {
         for _, share := range shares { 
-            earnings[symbol] += share.Price * float64(share.Shares)
+            cache[symbol] += share.Price * float64(share.Shares)
             numShares[symbol] += share.Shares
         }
     }
-
-    log.Println("earnings:", earnings)
 
     for {
         _, _, err := conn.ReadMessage()
@@ -148,18 +146,13 @@ func (c *Controller) IntraDay(w http.ResponseWriter, r *http.Request) {
             }
         }
 
-        copyEarnings := make(map[string]float64)
-        for k, v := range earnings {
-            copyEarnings[k] = v
-        }
-
         earning := &Earnings{
             Quotes: res,
-            GainsLosses: copyEarnings,
+            GainsLosses: make(map[string]float64),
         }
 
         for _, v := range res {
-            earning.GainsLosses[v.Symbol] = RoundFloat64((v.Open+v.Close)/2.0*float64(numShares[v.Symbol]) - earning.GainsLosses[v.Symbol], 0.01)
+            earning.GainsLosses[v.Symbol] = RoundFloat64((v.Open+v.Close)/2.0*float64(numShares[v.Symbol]) - cache[v.Symbol], 0.01)
         }
 
         data, err := json.Marshal(earning)
