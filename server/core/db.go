@@ -25,19 +25,29 @@ func (db *Database) GetUser(username string) (User, error) {
     }
     defer sqldb.Close()
 
-    query := fmt.Sprintf(`SELECT o.symbol, o.date, o.timezone, o.price, o.shares FROM user u
+    var id string
+    checkUserExists := sqldb.QueryRow("SELECT id FROM user where username = ?", username)
+    err = checkUserExists.Scan(&id)
+    if err == sql.ErrNoRows {
+        return user, fmt.Errorf("user does not exist")
+    } else if err != nil {
+        return user, fmt.Errorf("mysql query error:", err)
+    }
+
+    query := `SELECT o.symbol, o.date, o.timezone, o.price, o.shares FROM user u
     INNER JOIN user_ownedstock uo
     ON u.id = uo.user_id
     INNER JOIN ownedstock o
     ON o.id = uo.ownedstock_id
-    WHERE u.username = '%s'`, username)
+    WHERE u.id = ?`
 
-    rows, err := sqldb.Query(query)
+    user.Name = username
+    rows, err := sqldb.Query(query, id)
     if err != nil {
         return user, fmt.Errorf("error retrieving user:", err)
     }
+    defer rows.Close()
 
-    user.Name = username
     for rows.Next() {
         var stock OwnedStock
         var symbol string
@@ -178,4 +188,56 @@ func (db *Database) UpsertQuote(symbol string) (Quote, error) {
     }
     
     return quote, nil
+}
+
+func (db *Database) BuyStocks(buy Buy, username string) error { 
+    sqldb, err := sql.Open("mysql", db.User+":"+db.Password+"@/"+db.Name)
+    if err != nil {
+        return fmt.Errorf("Failed to connect to the database server: %v", err)
+    }
+    defer sqldb.Close()
+
+    stmts := []string{ 
+        "INSERT INTO ownedstock (symbol, date, timezone, price, shares) VALUES (?, ?, ?, ?, ?)", 
+        "INSERT INTO user_ownedstock (user_id, ownedstock_id) VALUES ((select id from user where username = ?), ?)",
+        "INSERT INTO ownedstock_quote (ownedstock_id, quote_id) Values (?, (select id from quote where symbol = ?))",
+    }
+
+    tx, err := sqldb.Begin()
+    if err != nil {
+        return fmt.Errorf("error starting mysql transaction:", err)
+    }
+
+    defer tx.Rollback()
+
+    for k, v := range buy {
+        quote, err := db.Api.GetQuote(k)
+        if err != nil {
+            return err
+        }
+
+        price := RoundFloat64((quote.High+quote.Low)/2.0, 0.01)
+
+        res, err := tx.Exec(stmts[0], strings.ToUpper(k), quote.Date, quote.TimeZone, price, v)
+        if err != nil {
+            return fmt.Errorf("mysql transaction error:", err)
+        }
+
+        ownedstock_id, err := res.LastInsertId()
+        if err != nil {
+            return fmt.Errorf("mysql transaction error:", err)
+        }
+
+        res, err = tx.Exec(stmts[1], username, ownedstock_id)  
+        if err != nil {
+            return fmt.Errorf("mysql transaction error:", err)
+        }
+
+        res, err = tx.Exec(stmts[2], ownedstock_id, strings.ToUpper(k))  
+        if err != nil {
+            return fmt.Errorf("mysql transaction error:", err)
+        }
+    }
+
+    return tx.Commit() 
 }

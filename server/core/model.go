@@ -50,3 +50,5 @@ type StockQuery struct {
     Quote Quote 
     Error error
 }
+
+type Buy map[string]int 

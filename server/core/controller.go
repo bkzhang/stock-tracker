@@ -58,8 +58,6 @@ func (c *Controller) AddUser(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    log.Println(user)
-
     if err := c.DB.AddUser(user); err != nil {
         w.WriteHeader(http.StatusInternalServerError)
         w.Write([]byte(err.Error()))
@@ -90,6 +88,40 @@ func (c *Controller) Quote(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(http.StatusOK)
     w.Write(data)
+}
+
+func (c *Controller) BuyStocks(w http.ResponseWriter, r *http.Request) {
+    vars := mux.Vars(r)
+
+    body, err := ioutil.ReadAll(r.Body)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        w.Write([]byte(err.Error()))
+        return
+    }
+
+    if err := r.Body.Close(); err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        w.Write([]byte(err.Error()))
+        return
+    }
+
+    var buy Buy
+    if err := json.Unmarshal(body, &buy); err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        w.Write([]byte(err.Error()))
+        return
+    }
+
+    if err := c.DB.BuyStocks(buy, vars["user"]); err != nil {
+        w.WriteHeader(http.StatusInternalServerError)
+        w.Write([]byte(err.Error()))
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusCreated)
+
 }
 
 func (c *Controller) IntraDay(w http.ResponseWriter, r *http.Request) {

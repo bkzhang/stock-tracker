@@ -37,6 +37,7 @@ func main() {
     r.Methods("POST").Path("/user").HandlerFunc(c.AddUser).Name("AddUser")
     r.Methods("GET").Path("/user/{user}").HandlerFunc(c.User).Name("User")
     r.Methods("GET").Path("/quote/{symbol}").HandlerFunc(c.Quote).Name("Quote")
+    r.Methods("POST").Path("/user/{user}/buy").HandlerFunc(c.BuyStocks).Name("BuyStocks")
 
     r.PathPrefix("/user/{user}/function/intraday").HandlerFunc(c.IntraDay).Name("IntraDay")
 
